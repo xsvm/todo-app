@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Todo App (Next.js + Supabase)
 
-## Getting Started
+一个基于 Next.js App Router 与 Supabase 的待办事项应用，支持登录、清单、任务、实时同步、优先级与截止时间、任务图片上传（Supabase Storage）。
 
-First, run the development server:
+## 本地运行
 
 ```bash
+npm i
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+在 `/.env.local` 写入：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=你的_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=你的_anon_key
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+可参考 `/.env.example`（请自行创建）
 
-## Learn More
+## 部署（Vercel）
+- 将本仓库导入 Vercel
+- 在 Vercel 的 Project Settings → Environment Variables 配置：
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- 触发部署即可
 
-To learn more about Next.js, take a look at the following resources:
+注意：
+- 不要提交 `.env.local`，本仓库 `.gitignore` 已忽略 `.env*`
+- Supabase 项目需启用 Realtime（Postgres Changes）并已创建数据表与 RLS 策略
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 技术栈
+- Next.js (App Router)
+- Tailwind（CDN 方式）
+- Supabase（Auth / DB / Realtime / Storage）
+- react-day-picker（自定义日历 UI）
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 许可
+MIT
