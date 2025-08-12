@@ -5,6 +5,7 @@ import { MoreVertical, LogOut, PlusCircle, Trash2, Edit2, CheckCircle2, Circle, 
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
 import { DayPicker } from 'react-day-picker'
 // import 'react-day-picker/dist/style.css' // 避免打包路径问题，采用内联最小样式
+import Image from 'next/image'
 
 type DbList = {
   id: string
@@ -292,7 +293,7 @@ export default function HomePage() {
     if (!activeTask) return
     const latest = tasks.find(t => t.id === activeTask.id)
     if (latest) setActiveTask(latest)
-  }, [tasks, activeTask?.id])
+  }, [tasks, activeTask])
 
   // 打开/切换任务时，初始化编辑描述
   useEffect(() => {
@@ -302,7 +303,7 @@ export default function HomePage() {
       setEditPriority(activeTask.priority !== undefined && [0,1,2,3].includes(activeTask.priority) ? activeTask.priority : 3)
       setEditDue(formatDateTimeLocal(activeTask.due_at))
     }
-  }, [activeTask?.id])
+  }, [activeTask])
 
   async function addTask() {
     if (!newTaskTitle.trim() || !userId) return
@@ -417,16 +418,6 @@ export default function HomePage() {
         await supabase.storage.from('task-images').remove([path])
       }
     } catch {}
-    const { error } = await supabase.from('tasks').update({ description: nextDesc }).eq('id', task.id)
-    if (error) { setTasks(prev); showModal('错误', error.message) }
-  }
-
-  async function saveTextDescription(task: DbTask) {
-    const urls = extractImageUrls(task.description)
-    const nextDesc = buildDescription(editDesc, urls)
-    const prev = [...tasks]
-    setTasks(cur => cur.map(t => t.id === task.id ? { ...t, description: nextDesc } : t))
-    setActiveTask({ ...task, description: nextDesc })
     const { error } = await supabase.from('tasks').update({ description: nextDesc }).eq('id', task.id)
     if (error) { setTasks(prev); showModal('错误', error.message) }
   }
@@ -893,7 +884,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<你的_anon_key>`}
                   {extractImageUrls(activeTask.description).map((url, idx) => (
                     <div key={idx} className="relative overflow-hidden rounded-xl border bg-white/70">
                       <button onClick={() => openImage(url)} className="block">
-                        <img src={url} alt="任务图片" className="w-full h-32 object-cover" />
+                        <Image src={url} alt="任务图片" width={400} height={128} className="w-full h-32 object-cover" />
                       </button>
                       <button onClick={() => deleteTaskImage(url, activeTask)} className="absolute top-1 right-1 h-7 w-7 grid place-items-center rounded-full bg-white/90 hover:bg-white text-black shadow">
                         <Trash2 size={14} />
@@ -926,10 +917,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<你的_anon_key>`}
               onMouseLeave={endPan}
               style={{ cursor: isPanning ? 'grabbing' : (imgZoom !== 1 ? 'grab' : 'default') }}
             >
-              <img
+              <Image
                 src={imgPreview.url}
                 alt="预览"
-                className="max-w-[92vw] max-h-[90vh] rounded-2xl shadow select-none"
+                width={1600}
+                height={900}
+                className="max-w-[92vw] max-h-[90vh] rounded-2xl shadow select-none w-auto h-auto"
                 draggable={false}
                 style={{ transform: `translate(${imgPan.x}px, ${imgPan.y}px) scale(${imgZoom})`, transition: isPanning ? 'none' : 'transform 150ms ease-out' }}
               />
