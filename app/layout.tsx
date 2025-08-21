@@ -3,6 +3,9 @@ import Script from 'next/script'
 export const metadata = {
   title: '待办事项',
   description: 'Next.js + Supabase Todo',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -16,4 +19,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   )
-} 
+}

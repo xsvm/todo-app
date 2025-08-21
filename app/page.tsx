@@ -3,8 +3,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { supabase, isSupabaseConfigured } from "../lib/supabase"
 import { MoreVertical, LogOut, PlusCircle, Trash2, Edit2, CheckCircle2, Circle, Mail, Lock, X, Settings } from "lucide-react"
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js"
-import { DayPicker } from 'react-day-picker'
-// import 'react-day-picker/dist/style.css' // 避免打包路径问题，采用内联最小样式
+import ChineseCalendar from '../components/ChineseCalendar'
 import Image from 'next/image'
 
 type DbList = {
@@ -132,6 +131,7 @@ export default function HomePage() {
   const [avatarUrl, setAvatarUrl] = useState<string>("https://ts4.tc.mm.bing.net/th/id/OIP-C.3GVPS66zI66uBi7V9_P4UgHaHc?cb=thfc1&rs=1&pid=ImgDetMain&o=7&rm=3")
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
   const [avatarMenuOpen, setAvatarMenuOpen] = useState<boolean>(false)
+  const [showCompleted, setShowCompleted] = useState<boolean>(false)
   const avatarMenuTimerRef = useRef<number | null>(null)
   const openAvatarMenu = () => {
     if (avatarMenuTimerRef.current) {
@@ -219,12 +219,11 @@ export default function HomePage() {
     }
   }, [userId])
 
-  const loadTasks = useCallback(async (listId: string) => {
+  const loadAllTasks = useCallback(async () => {
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
       .is("deleted_at", null)
-      .eq("list_id", listId)
       .order("priority", { ascending: true })
       .order("order_key", { ascending: true })
     if (!error) setTasks(data ?? [])
@@ -238,11 +237,11 @@ export default function HomePage() {
   }, [userId, loadLists])
 
   useEffect(() => {
-    if (!userId || !activeListId) return
+    if (!userId) return
     ;(async () => {
-      await loadTasks(activeListId)
+      await loadAllTasks()
     })()
-  }, [userId, activeListId, loadTasks])
+  }, [userId, loadAllTasks])
 
   useEffect(() => {
     if (!userId) return
@@ -286,7 +285,7 @@ export default function HomePage() {
       supabase.removeChannel(tasksChannel)
       supabase.removeChannel(listsChannel)
     }
-  }, [userId, activeListId])
+  }, [userId])
 
   // 当任务列表更新时，同步当前弹窗中的任务数据
   useEffect(() => {
@@ -311,8 +310,7 @@ export default function HomePage() {
     setNewTaskTitle("")
 
     // 计算当前清单的最大 order_key，新的排在底部
-    const currentListTasks = tasks.filter(t => t.deleted_at == null && t.list_id === activeListId)
-    const currentMax = currentListTasks.length > 0 ? Math.max(...currentListTasks.map(t => Number(t.order_key) || 0)) : 0
+    const currentMax = activeTasks.length > 0 ? Math.max(...activeTasks.map(t => Number(t.order_key) || 0)) : 0
     const nextOrderKey = (isFinite(currentMax) ? currentMax : 0) + 1
 
     // 使用稳定 id，避免 Realtime 回来时产生重复项
@@ -583,9 +581,14 @@ export default function HomePage() {
     setAvatarUrl(data.publicUrl)
   }
 
-  const activeTasks = useMemo(() => tasks.filter(t => t.deleted_at == null && (activeListId ? t.list_id === activeListId : true))
+  const activeTasks = useMemo(() => tasks.filter(t => t.deleted_at == null && t.status !== 'done' && (activeListId ? t.list_id === activeListId : true))
     .slice()
     .sort((a, b) => (a.priority - b.priority) || (Number(a.order_key) - Number(b.order_key)))
+  , [tasks, activeListId])
+
+  const completedTasks = useMemo(() => tasks.filter(t => t.deleted_at == null && t.status === 'done' && (activeListId ? t.list_id === activeListId : true))
+    .slice()
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
   , [tasks, activeListId])
 
   function openImage(url: string) {
@@ -765,16 +768,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<你的_anon_key>`}
       <section className="flex-1 p-8 space-y-4">
         <div className="rounded-2xl p-6 bg-white/70 backdrop-blur shadow">
           <h1 className="text-2xl font-bold">任务</h1>
-          <div className="mt-4 flex gap-2 items-center">
+          <div className="mt-4 flex items-center border rounded-xl bg-white/60 overflow-hidden">
             <button
               onClick={addTask}
-              className="h-10 w-10 shrink-0 grid place-items-center rounded-xl border hover:opacity-90 focus:outline-none"
+              className="h-10 w-10 shrink-0 grid place-items-center hover:bg-black/5 focus:outline-none transition-colors"
               aria-label="添加任务"
               title="添加任务"
             >
               <PlusCircle size={20} />
             </button>
-            <input className="flex-1 border rounded-xl px-3 py-2 outline-none bg-white/60 placeholder-black/60" placeholder="添加任务..." value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} onKeyDown={e => (e.key === 'Enter' ? addTask() : null)} />
+            <input className="flex-1 h-10 px-3 outline-none bg-transparent placeholder-black/60" placeholder="添加任务..." value={newTaskTitle} onChange={e => setNewTaskTitle(e.target.value)} onKeyDown={e => (e.key === 'Enter' ? addTask() : null)} />
           </div>
           <ul className="mt-4 space-y-2">
             {activeTasks.map(t => (
@@ -798,7 +801,45 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<你的_anon_key>`}
               </li>
             ))}
           </ul>
-        </div>
+          
+          {/* 已完成任务区域 */}
+          {completedTasks.length > 0 && (
+            <div className="mt-6">
+              <button 
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="flex items-center gap-2 text-sm text-black/70 hover:text-black transition-colors mb-3"
+              >
+                <span>已完成 ({completedTasks.length})</span>
+                <span className={`transform transition-transform ${showCompleted ? 'rotate-90' : ''}`}>▶</span>
+              </button>
+              
+              {showCompleted && (
+                <ul className="space-y-2">
+                  {completedTasks.map(t => (
+                    <li key={t.id} className="flex items-center gap-3 border rounded-xl p-3 bg-white/40 cursor-pointer opacity-75" onClick={() => setActiveTask(t)}>
+                      <button onClick={(e) => { e.stopPropagation(); toggleTask(t) }} aria-label="标记为未完成" className="h-6 w-6 grid place-items-center">
+                        <CheckCircle2 size={18} className="text-green-600" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-left truncate line-through text-black/60">{t.title}</div>
+                        <div className="mt-1 flex items-center gap-3 text-xs">
+                          <span className="flex items-center gap-1">
+                            <span className={`${priorityDotClass(t.priority)} inline-block h-2.5 w-2.5 rounded-full ring-1 ring-black/10 shadow opacity-60`} />
+                            <span className="text-black/60">{priorityLabel(t.priority)}</span>
+                          </span>
+                          <span className="text-green-600">已完成</span>
+                        </div>
+                      </div>
+                      <button onClick={(e) => { e.stopPropagation(); removeTask(t) }} className="h-8 w-8 grid place-items-center rounded-xl hover:bg-black/5" aria-label="删除">
+                        <Trash2 size={16} className="text-black/60" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+               )}
+             </div>
+           )}
+         </div>
         {activeTask && (
           <div className="fixed inset-0 z-[90] flex items-center justify-center">
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={closeDetail} />
@@ -847,22 +888,15 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<你的_anon_key>`}
                       </>
                     )}
                     {showCalendar && (
-                      <div className="absolute z-50 top-full left-0 mt-2 rounded-xl border bg-white/95 p-2 shadow">
-                        <style>{`
-                          .rdp { --rdp-accent: #000; --rdp-background-color: rgba(0,0,0,0.04); margin: 0; }
-                          .rdp-button:hover { background: rgba(0,0,0,0.06); }
-                          .rdp-day_selected, .rdp-day_selected:focus-visible, .rdp-day_selected:hover { background: #000; color: #fff; }
-                        `}</style>
-                        <DayPicker
-                          mode="single"
-                          selected={editDue ? new Date(editDue) : undefined}
-                          onSelect={(d) => {
-                            if (d) {
-                              const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0).toISOString()
-                              setEditDue(iso)
-                              setShowCalendar(false)
-                            }
+                      <div className="absolute z-50 top-full left-0 mt-2 rounded-xl border bg-white/95 shadow">
+                        <ChineseCalendar
+                          value={editDue ? new Date(editDue) : undefined}
+                          onChange={(date) => {
+                            const iso = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0).toISOString()
+                            setEditDue(iso)
+                            setShowCalendar(false)
                           }}
+                          className="w-80"
                         />
                       </div>
                     )}
@@ -944,4 +978,4 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<你的_anon_key>`}
       </section>
     </main>
   )
-} 
+}

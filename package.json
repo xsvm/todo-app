@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.54.0",
+    "antd": "^5.27.1",
+    "dayjs": "^1.11.13",
     "lucide-react": "^0.539.0",
     "next": "15.4.6",
     "react": "19.1.0",
